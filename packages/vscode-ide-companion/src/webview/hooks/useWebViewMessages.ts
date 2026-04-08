@@ -12,6 +12,7 @@ import type {
   ToolCallUpdate,
   UsageStatsPayload,
 } from '../../types/chatTypes.js';
+import type { InsightTaskState } from '../../types/insightTask.js';
 import type { ApprovalModeValue } from '../../types/approvalModeValueTypes.js';
 import type { PlanEntry } from '../../types/chatTypes.js';
 import type { ModelInfo, AvailableCommand } from '@agentclientprotocol/sdk';
@@ -131,12 +132,8 @@ interface UseWebViewMessagesProps {
   setAvailableCommands?: (commands: AvailableCommand[]) => void;
   // Available models setter
   setAvailableModels?: (models: ModelInfo[]) => void;
-  // Latest generated insight report path
-  setInsightReportPath?: (path: string | null) => void;
-  // Latest structured insight progress update
-  setInsightProgress?: (
-    progress: { stage: string; progress: number; detail?: string } | null,
-  ) => void;
+  // Latest insight task state
+  setInsightTask?: (task: InsightTaskState | null) => void;
 }
 
 /**
@@ -160,8 +157,7 @@ export const useWebViewMessages = ({
   setModelInfo,
   setAvailableCommands,
   setAvailableModels,
-  setInsightReportPath,
-  setInsightProgress,
+  setInsightTask,
 }: UseWebViewMessagesProps) => {
   // VS Code API for posting messages back to the extension host
   const vscode = useVSCode();
@@ -199,8 +195,7 @@ export const useWebViewMessages = ({
     setModelInfo,
     setAvailableCommands,
     setAvailableModels,
-    setInsightReportPath,
-    setInsightProgress,
+    setInsightTask,
   });
 
   // Track last "Updated Plan" snapshot toolcall to support merge/dedupe
@@ -237,8 +232,7 @@ export const useWebViewMessages = ({
 
   const clearInsightState = () => {
     activeInsightRunRef.current = false;
-    handlersRef.current.setInsightProgress?.(null);
-    handlersRef.current.setInsightReportPath?.(null);
+    handlersRef.current.setInsightTask?.(null);
   };
 
   const setInsightProgressState = (progress: {
@@ -247,14 +241,46 @@ export const useWebViewMessages = ({
     detail?: string;
   }) => {
     activeInsightRunRef.current = true;
-    handlersRef.current.setInsightReportPath?.(null);
-    handlersRef.current.setInsightProgress?.(progress);
+    handlersRef.current.setInsightTask?.({
+      status: 'progress',
+      stage: progress.stage,
+      progress: progress.progress,
+      detail: progress.detail,
+      reportPath: null,
+      error: null,
+    });
   };
 
   const setInsightReportReadyState = (path: string | null) => {
     activeInsightRunRef.current = false;
-    handlersRef.current.setInsightProgress?.(null);
-    handlersRef.current.setInsightReportPath?.(path);
+    handlersRef.current.setInsightTask?.({
+      status: 'ready',
+      stage: 'Insight report ready',
+      progress: 100,
+      detail: path ? 'Report saved locally.' : undefined,
+      reportPath: path,
+      error: null,
+    });
+  };
+
+  const setInsightFailedState = (error?: string) => {
+    activeInsightRunRef.current = false;
+    handlersRef.current.setInsightTask?.({
+      status: 'failed',
+      stage: 'Insight generation failed',
+      reportPath: null,
+      error: error?.trim() || null,
+    });
+  };
+
+  const setInsightCancelledState = () => {
+    activeInsightRunRef.current = false;
+    handlersRef.current.setInsightTask?.({
+      status: 'cancelled',
+      stage: 'Insight generation cancelled',
+      reportPath: null,
+      error: null,
+    });
   };
 
   // Update refs
@@ -273,8 +299,7 @@ export const useWebViewMessages = ({
       setModelInfo,
       setAvailableCommands,
       setAvailableModels,
-      setInsightReportPath,
-      setInsightProgress,
+      setInsightTask,
     };
   });
 
@@ -1084,13 +1109,18 @@ export const useWebViewMessages = ({
           setInsightReportReadyState(path ?? null);
           break;
         }
+        case 'insightFailed': {
+          const error = message.data?.error as string | undefined;
+          setInsightFailedState(error);
+          break;
+        }
         case 'cancelStreaming':
           // Handle cancel streaming response from extension
           // Note: The "Interrupted" message is already added by handleCancel in App.tsx
           // to provide immediate UI feedback. We only need to ensure streaming states
           // are properly cleaned up here.
           if (activeInsightRunRef.current) {
-            clearInsightState();
+            setInsightCancelledState();
           }
           handlers.messageHandling.endStreaming();
           handlers.messageHandling.clearWaitingForResponse();

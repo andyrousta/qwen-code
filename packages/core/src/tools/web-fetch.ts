@@ -5,7 +5,6 @@
  */
 
 import { convert } from 'html-to-text';
-import { ProxyAgent, setGlobalDispatcher } from 'undici';
 import type { Config } from '../config/config.js';
 import { fetchWithTimeout, isPrivateIp } from '../utils/fetch.js';
 import { getResponseText } from '../utils/partUtils.js';
@@ -111,7 +110,11 @@ ${textContent}
 
       const result = await geminiClient.generateContent(
         [{ role: 'user', parts: [{ text: fallbackPrompt }] }],
-        {},
+        {
+          systemInstruction:
+            'Extract and summarize the requested information from the provided web content. ' +
+            'Be concise and accurate. Respond only with the requested information.',
+        },
         signal,
         this.config.getModel() || DEFAULT_QWEN_MODEL,
       );
@@ -235,10 +238,6 @@ export class WebFetchTool extends BaseDeclarativeTool<
         type: 'object',
       },
     );
-    const proxy = config.getProxy();
-    if (proxy) {
-      setGlobalDispatcher(new ProxyAgent(proxy as string));
-    }
   }
 
   protected override validateToolParamValues(

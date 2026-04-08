@@ -55,6 +55,7 @@ export * from './output/types.js';
 export * from './core/client.js';
 export * from './core/contentGenerator.js';
 export * from './core/coreToolScheduler.js';
+export * from './core/permission-helpers.js';
 export * from './core/geminiChat.js';
 export * from './core/geminiRequest.js';
 export * from './core/logger.js';
@@ -97,12 +98,16 @@ export * from './tools/tool-registry.js';
 export * from './tools/web-fetch.js';
 export * from './tools/web-search/index.js';
 export * from './tools/write-file.js';
+export * from './tools/cron-create.js';
+export * from './tools/cron-list.js';
+export * from './tools/cron-delete.js';
 
 // ============================================================================
 // Services
 // ============================================================================
 
 export * from './services/chatRecordingService.js';
+export * from './services/cronScheduler.js';
 export * from './services/fileDiscoveryService.js';
 export * from './services/fileSystemService.js';
 export * from './services/gitService.js';
@@ -128,7 +133,6 @@ export * from './ide/types.js';
 export * from './lsp/constants.js';
 export * from './lsp/LspConfigLoader.js';
 export * from './lsp/LspConnectionFactory.js';
-export * from './lsp/LspLanguageDetector.js';
 export * from './lsp/LspResponseNormalizer.js';
 export * from './lsp/LspServerManager.js';
 export * from './lsp/NativeLspClient.js';
@@ -169,6 +173,8 @@ export {
   logExtensionEnable,
   logIdeConnection,
   logModelSlashCommand,
+  logPromptSuggestion,
+  logSpeculation,
 } from './telemetry/loggers.js';
 export {
   AuthEvent,
@@ -179,6 +185,8 @@ export {
   IdeConnectionEvent,
   IdeConnectionType,
   ModelSlashCommandEvent,
+  PromptSuggestionEvent,
+  SpeculationEvent,
 } from './telemetry/types.js';
 
 // ============================================================================
@@ -190,6 +198,12 @@ export * from './prompts/mcp-prompts.js';
 export * from './skills/index.js';
 export * from './subagents/index.js';
 export * from './agents/index.js';
+
+// ============================================================================
+// Follow-up Suggestions
+// ============================================================================
+
+export * from './followup/index.js';
 
 // ============================================================================
 // Utilities
@@ -218,7 +232,9 @@ export * from './utils/pathReader.js';
 export * from './utils/paths.js';
 export * from './utils/projectSummary.js';
 export * from './utils/promptIdContext.js';
+export * from './utils/proxyUtils.js';
 export * from './utils/quotaErrorDetection.js';
+export * from './utils/rateLimit.js';
 export * from './utils/readManyFiles.js';
 export * from './utils/request-tokenizer/supportedImageFormats.js';
 export { TextTokenizer } from './utils/request-tokenizer/textTokenizer.js';
@@ -261,5 +277,6 @@ export type { HookRegistryEntry } from './hooks/index.js';
 // Export hook triggers for notification hooks
 export {
   fireNotificationHook,
+  firePermissionRequestHook,
   type NotificationHookResult,
 } from './core/toolHookTriggers.js';

@@ -82,6 +82,7 @@ export interface QwenAgentCallbacks {
   onAvailableCommands?: (commands: AvailableCommand[]) => void;
   onAvailableModels?: (models: ModelInfo[]) => void;
   onSlashCommandNotification?: (event: SlashCommandNotification) => void;
+  onDisconnected?: (code: number | null, signal: string | null) => void;
 }
 
 export interface ToolCallUpdate {

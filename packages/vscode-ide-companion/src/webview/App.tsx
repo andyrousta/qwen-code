@@ -9,6 +9,7 @@ import React, {
   useEffect,
   useRef,
   useCallback,
+  type ComponentType,
   useMemo,
   useLayoutEffect,
 } from 'react';
@@ -53,13 +54,16 @@ import type { ApprovalModeValue } from '../types/approvalModeValueTypes.js';
 import type { PlanEntry, UsageStatsPayload } from '../types/chatTypes.js';
 import type { ModelInfo, AvailableCommand } from '@agentclientprotocol/sdk';
 import type { Question } from '../types/acpTypes.js';
-import {
-  DEFAULT_TOKEN_LIMIT,
-  tokenLimit,
-} from '@qwen-code/qwen-code-core/src/core/tokenLimits.js';
+import { DEFAULT_TOKEN_LIMIT, tokenLimit } from '../utils/tokenLimits.js';
 import { useImagePaste, type WebViewImageMessage } from './hooks/useImage.js';
+import type {
+  InsightTaskCardProps,
+  InsightTaskState,
+} from '../types/insightTask.js';
 
 export const App: React.FC = () => {
+  const InsightTaskCard =
+    InsightProgressCard as unknown as ComponentType<InsightTaskCardProps>;
   const vscode = useVSCode();
 
   // Core hooks
@@ -95,14 +99,7 @@ export const App: React.FC = () => {
     AvailableCommand[]
   >([]);
   const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
-  const [insightProgress, setInsightProgress] = useState<{
-    stage: string;
-    progress: number;
-    detail?: string;
-  } | null>(null);
-  const [insightReportPath, setInsightReportPath] = useState<string | null>(
-    null,
-  );
+  const [insightTask, setInsightTask] = useState<InsightTaskState | null>(null);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   // Scroll container for message list; used to keep the view anchored to the latest content
@@ -375,8 +372,7 @@ export const App: React.FC = () => {
     setAvailableModels: (models) => {
       setAvailableModels(models);
     },
-    setInsightReportPath,
-    setInsightProgress,
+    setInsightTask,
   });
 
   // Auto-scroll handling: keep the view pinned to bottom when new content arrives,
@@ -492,10 +488,18 @@ export const App: React.FC = () => {
 
   // Set loading state to false after initial mount and when we have authentication info
   useEffect(() => {
-    // If we have determined authentication status, we're done loading
     if (isAuthenticated !== null) {
       setIsLoading(false);
+      return;
     }
+
+    // Safety-net timeout: if initialization takes too long (e.g. CLI crashed
+    // before the error could be surfaced), stop the spinner and let the user
+    // see the onboarding / error UI instead of hanging forever.
+    const timeout = setTimeout(() => {
+      setIsLoading(false);
+    }, 30_000);
+    return () => clearTimeout(timeout);
   }, [isAuthenticated]);
 
   // Handle permission response
@@ -761,14 +765,14 @@ export const App: React.FC = () => {
   }, [vscode]);
 
   const handleOpenInsightReport = useCallback(() => {
-    if (!insightReportPath) {
+    if (!insightTask?.reportPath) {
       return;
     }
     vscode.postMessage({
       type: 'openInsightReport',
-      data: { path: insightReportPath },
+      data: { path: insightTask.reportPath },
     });
-  }, [insightReportPath, vscode]);
+  }, [insightTask?.reportPath, vscode]);
 
   // Handle toggle edit mode (Default -> Auto-edit -> YOLO -> Default)
   const handleToggleEditMode = useCallback(() => {
@@ -795,7 +799,7 @@ export const App: React.FC = () => {
 
   // When user sends a message after scrolling up, re-pin and jump to the bottom
   const handleSubmitWithScroll = useCallback(
-    (e: React.FormEvent) => {
+    (e: React.FormEvent | React.KeyboardEvent, explicitText?: string) => {
       setPinnedToBottom(true);
 
       const container = messagesContainerRef.current;
@@ -804,7 +808,7 @@ export const App: React.FC = () => {
         container.scrollTo({ top });
       }
 
-      submitMessage(e);
+      submitMessage(e, explicitText);
     },
     [submitMessage],
   );
@@ -971,7 +975,9 @@ export const App: React.FC = () => {
       <ChatHeader
         currentSessionTitle={sessionManagement.currentSessionTitle}
         onLoadSessions={sessionManagement.handleLoadQwenSessions}
-        onNewSession={sessionManagement.handleNewQwenSession}
+        onNewSession={() =>
+          sessionManagement.handleNewQwenSession(modelInfo?.modelId ?? null)
+        }
       />
 
       <div
@@ -998,30 +1004,20 @@ export const App: React.FC = () => {
             {/* Render all messages and tool calls */}
             {renderMessages()}
 
-            {insightProgress && (
-              <InsightProgressCard
-                stage={insightProgress.stage}
-                progress={insightProgress.progress}
-                detail={insightProgress.detail}
+            {insightTask && (
+              <InsightTaskCard
+                status={insightTask.status}
+                stage={insightTask.stage}
+                progress={insightTask.progress}
+                detail={insightTask.detail}
+                reportPath={insightTask.reportPath}
+                error={insightTask.error}
+                onOpenReport={
+                  insightTask.status === 'ready'
+                    ? handleOpenInsightReport
+                    : undefined
+                }
               />
-            )}
-
-            {insightReportPath && (
-              <div className="px-[30px] py-2">
-                <div className="text-sm text-[var(--vscode-descriptionForeground)]">
-                  Insight report generated at:
-                </div>
-                <a
-                  href="#"
-                  className="mt-1 inline-block break-all text-sm text-[var(--vscode-textLink-foreground)] underline decoration-[color-mix(in_srgb,var(--vscode-textLink-foreground)_55%,transparent)] underline-offset-2 hover:text-[var(--vscode-textLink-activeForeground)]"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    handleOpenInsightReport();
-                  }}
-                >
-                  {insightReportPath}
-                </a>
-              </div>
             )}
 
             {/* Waiting message positioned fixed above the input form to avoid layout shifts */}

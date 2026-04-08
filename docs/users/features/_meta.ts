@@ -1,5 +1,6 @@
 export default {
   commands: 'Commands',
+  'followup-suggestions': 'Followup Suggestions',
   'sub-agents': 'SubAgents',
   arena: 'Agent Arena',
   skills: 'Skills',
@@ -13,4 +14,7 @@ export default {
   'token-caching': 'Token Caching',
   sandbox: 'Sandboxing',
   language: 'i18n',
+  channels: 'Channels',
+  hooks: 'Hooks',
+  'scheduled-tasks': 'Scheduled Tasks',
 };
