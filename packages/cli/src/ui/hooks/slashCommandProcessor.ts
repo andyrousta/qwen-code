@@ -23,6 +23,7 @@ import { useSessionStats } from '../contexts/SessionContext.js';
 import type {
   Message,
   HistoryItemWithoutId,
+  HistoryItemBtw,
   SlashCommandProcessorResult,
   HistoryItem,
   ConfirmationRequest,
@@ -36,6 +37,7 @@ import { BundledSkillLoader } from '../../services/BundledSkillLoader.js';
 import { FileCommandLoader } from '../../services/FileCommandLoader.js';
 import { McpPromptLoader } from '../../services/McpPromptLoader.js';
 import { parseSlashCommand } from '../../utils/commands.js';
+import { isBtwCommand } from '../utils/commandUtils.js';
 import { clearScreen } from '../../utils/stdioHelpers.js';
 import { useKeypress } from './useKeypress.js';
 import {
@@ -63,6 +65,7 @@ const SLASH_COMMANDS_SKIP_RECORDING = new Set([
   'reset',
   'new',
   'resume',
+  'btw',
 ]);
 
 interface SlashCommandProcessorActions {
@@ -71,7 +74,7 @@ interface SlashCommandProcessorActions {
   openThemeDialog: () => void;
   openEditorDialog: () => void;
   openSettingsDialog: () => void;
-  openModelDialog: () => void;
+  openModelDialog: (options?: { fastModelMode?: boolean }) => void;
   openTrustDialog: () => void;
   openPermissionsDialog: () => void;
   openApprovalModeDialog: () => void;
@@ -84,6 +87,7 @@ interface SlashCommandProcessorActions {
   openAgentsManagerDialog: () => void;
   openExtensionsManagerDialog: () => void;
   openMcpDialog: () => void;
+  openHooksDialog: () => void;
 }
 
 /**
@@ -139,10 +143,20 @@ export const useSlashCommandProcessor = (
     null,
   );
 
+  const [btwItem, setBtwItem] = useState<HistoryItemBtw | null>(null);
+  const btwAbortControllerRef = useRef<AbortController | null>(null);
+
+  const cancelBtw = useCallback(() => {
+    btwAbortControllerRef.current?.abort();
+    btwAbortControllerRef.current = null;
+    setBtwItem(null);
+  }, []);
+
   // AbortController for cancelling async slash commands via ESC
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const cancelSlashCommand = useCallback(() => {
+    cancelBtw();
     if (!abortControllerRef.current) {
       return;
     }
@@ -156,7 +170,7 @@ export const useSlashCommandProcessor = (
     );
     setPendingItem(null);
     setIsProcessing(false);
-  }, [addItem, setIsProcessing]);
+  }, [addItem, setIsProcessing, cancelBtw]);
 
   useKeypress(
     (key) => {
@@ -251,6 +265,10 @@ export const useSlashCommandProcessor = (
         setDebugMessage: actions.setDebugMessage,
         pendingItem,
         setPendingItem,
+        btwItem,
+        setBtwItem,
+        cancelBtw,
+        btwAbortControllerRef,
         toggleVimEnabled,
         setGeminiMdFileCount,
         reloadCommands,
@@ -279,6 +297,9 @@ export const useSlashCommandProcessor = (
       actions,
       pendingItem,
       setPendingItem,
+      btwItem,
+      setBtwItem,
+      cancelBtw,
       toggleVimEnabled,
       sessionShellAllowlist,
       setGeminiMdFileCount,
@@ -312,17 +333,24 @@ export const useSlashCommandProcessor = (
   useEffect(() => {
     const controller = new AbortController();
     const load = async () => {
-      const loaders = [
-        new McpPromptLoader(config),
-        new BuiltinCommandLoader(config),
-        new BundledSkillLoader(config),
-        new FileCommandLoader(config),
-      ];
-      const commandService = await CommandService.create(
-        loaders,
-        controller.signal,
-      );
-      setCommands(commandService.getCommands());
+      try {
+        const loaders = [
+          new McpPromptLoader(config),
+          new BuiltinCommandLoader(config),
+          new BundledSkillLoader(config),
+          new FileCommandLoader(config),
+        ];
+        const commandService = await CommandService.create(
+          loaders,
+          controller.signal,
+        );
+        // Avoid overwriting newer results from a subsequent effect run
+        if (!controller.signal.aborted) {
+          setCommands(commandService.getCommands());
+        }
+      } catch (error) {
+        debugLogger.error('Failed to load slash commands:', error);
+      }
     };
 
     load();
@@ -366,10 +394,12 @@ export const useSlashCommandProcessor = (
       abortControllerRef.current = abortController;
 
       const userMessageTimestamp = Date.now();
-      addItemWithRecording(
-        { type: MessageType.USER, text: trimmed },
-        userMessageTimestamp,
-      );
+      if (!isBtwCommand(trimmed)) {
+        addItemWithRecording(
+          { type: MessageType.USER, text: trimmed },
+          userMessageTimestamp,
+        );
+      }
 
       let hasError = false;
       const {
@@ -486,6 +516,9 @@ export const useSlashCommandProcessor = (
                     case 'model':
                       actions.openModelDialog();
                       return { type: 'handled' };
+                    case 'fast-model':
+                      actions.openModelDialog({ fastModelMode: true });
+                      return { type: 'handled' };
                     case 'trust':
                       actions.openTrustDialog();
                       return { type: 'handled' };
@@ -500,6 +533,9 @@ export const useSlashCommandProcessor = (
                       return { type: 'handled' };
                     case 'mcp':
                       actions.openMcpDialog();
+                      return { type: 'handled' };
+                    case 'hooks':
+                      actions.openHooksDialog();
                       return { type: 'handled' };
                     case 'approval-mode':
                       actions.openApprovalModeDialog();
@@ -727,6 +763,9 @@ export const useSlashCommandProcessor = (
     handleSlashCommand,
     slashCommands: commands,
     pendingHistoryItems,
+    btwItem,
+    setBtwItem,
+    cancelBtw,
     commandContext,
     shellConfirmationRequest,
     confirmationRequest,
