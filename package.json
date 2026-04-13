@@ -71,6 +71,12 @@
       "src/**/*.ts",
       "!src/**/*.d.ts",
       "!src/**/__tests__/**"
-    ]
+    ],
+    "coverageThreshold": {
+      "global": {
+        "lines": 70,
+        "functions": 70
+      }
+    }
   }
 }
