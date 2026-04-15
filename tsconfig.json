@@ -20,7 +20,9 @@
     "emitDecoratorMetadata": true,
     // Personal: surface unused locals/params as errors to keep code clean
     "noUnusedLocals": true,
-    "noUnusedParameters": true
+    "noUnusedParameters": true,
+    // Personal: catch implicit fallthrough in switch statements
+    "noFallthroughCasesInSwitch": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
