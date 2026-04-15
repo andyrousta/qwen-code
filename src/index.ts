@@ -22,8 +22,9 @@ async function main(): Promise<void> {
   } catch (error) {
     if (error instanceof Error) {
       logger.error(`Fatal error: ${error.message}`);
-      if (process.env.DEBUG) {
-        logger.error(error.stack || '');
+      // Always log stack trace, not just in DEBUG mode - easier to diagnose issues
+      if (error.stack) {
+        logger.error(error.stack);
       }
     } else {
       logger.error('An unexpected error occurred');
@@ -49,6 +50,10 @@ process.on('unhandledRejection', (reason: unknown) => {
 // Handle uncaught exceptions
 process.on('uncaughtException', (error: Error) => {
   logger.error(`Uncaught exception: ${error.message}`);
+  // Log stack trace for uncaught exceptions to aid debugging
+  if (error.stack) {
+    logger.error(error.stack);
+  }
   process.exit(1);
 });
 
