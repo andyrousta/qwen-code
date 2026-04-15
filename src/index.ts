@@ -39,6 +39,10 @@ process.on('unhandledRejection', (reason: unknown) => {
       reason instanceof Error ? reason.message : String(reason)
     }`
   );
+  // Log the full stack in debug mode for easier troubleshooting
+  if (process.env.DEBUG && reason instanceof Error) {
+    logger.error(reason.stack || '');
+  }
   process.exit(1);
 });
 
