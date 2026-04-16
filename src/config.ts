@@ -35,7 +35,8 @@ const DEFAULT_MODEL_CONFIG: ModelConfig = {
   model: process.env.QWEN_MODEL ?? 'qwen-coder-plus-latest',
   baseUrl: process.env.DASHSCOPE_BASE_URL ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1',
   maxTokens: parseInt(process.env.QWEN_MAX_TOKENS ?? '8192', 10),
-  temperature: parseFloat(process.env.QWEN_TEMPERATURE ?? '0.7'),
+  // Lowered from 0.7 to 0.2 for more deterministic/consistent code output
+  temperature: parseFloat(process.env.QWEN_TEMPERATURE ?? '0.2'),
 };
 
 /** Resolve the application data directory */
