@@ -34,7 +34,8 @@ export interface AppConfig {
 const DEFAULT_MODEL_CONFIG: ModelConfig = {
   model: process.env.QWEN_MODEL ?? 'qwen-coder-plus-latest',
   baseUrl: process.env.DASHSCOPE_BASE_URL ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-  maxTokens: parseInt(process.env.QWEN_MAX_TOKENS ?? '8192', 10),
+  // Increased from 8192 to 16384 for handling larger files/responses
+  maxTokens: parseInt(process.env.QWEN_MAX_TOKENS ?? '16384', 10),
   // Lowered from 0.7 to 0.2 for more deterministic/consistent code output
   temperature: parseFloat(process.env.QWEN_TEMPERATURE ?? '0.2'),
 };
@@ -54,7 +55,8 @@ export function getConfig(): AppConfig {
     model: DEFAULT_MODEL_CONFIG,
     dataDir: resolveDataDir(),
     debug: process.env.DEBUG === 'true' || process.env.QWEN_DEBUG === 'true',
-    maxContextTurns: parseInt(process.env.QWEN_MAX_CONTEXT_TURNS ?? '50', 10),
+    // Increased from 50 to 100 to retain more context for longer sessions
+    maxContextTurns: parseInt(process.env.QWEN_MAX_CONTEXT_TURNS ?? '100', 10),
     requestTimeoutMs: parseInt(process.env.QWEN_REQUEST_TIMEOUT_MS ?? '60000', 10),
   };
 }
