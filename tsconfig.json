@@ -24,7 +24,9 @@
     // Personal: catch implicit fallthrough in switch statements
     "noFallthroughCasesInSwitch": true,
     // Personal: ensure functions always have explicit return types
-    "noImplicitReturns": true
+    "noImplicitReturns": true,
+    // Personal: disallow accessing properties via index signature without explicit type
+    "noPropertyAccessFromIndexSignature": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
